@@ -4,6 +4,7 @@ use rangemap::RangeInclusiveSet;
 use solana_rpc_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::commitment_config::{CommitmentConfig, CommitmentLevel};
 use solana_sdk::epoch_info::EpochInfo;
+use std::ops::Range;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -167,6 +168,10 @@ impl RPCLeaderTracker {
             )
             .await
         {
+            Err(e) => {
+                error!("Failed to get leader schedule: {e}");
+                Err(())
+            }
             Ok(sched) => {
                 if sched.is_none() {
                     error!("Failed to get leader schedule.");
@@ -177,18 +182,18 @@ impl RPCLeaderTracker {
                     for slot in my_slots {
                         let end: u64 = *slot as u64;
 
-                        leader_ranges.insert(end - self.slot_buffer..=end);
+                        let range = end.saturating_sub(self.slot_buffer)..=end;
+                        leader_ranges.insert(range);
                     }
                     leader_ranges.insert(0..=10);
+                    // let rngs: Vec<Range<u64>> =leader_ranges.iter().collect();
+                    info!("Leader ranges: {leader_ranges:?}");
+
                     Ok(leader_ranges)
                 } else {
                     error!("No slots found for: {my_id}");
                     Err(())
                 }
-            }
-            Err(e) => {
-                error!("Failed to get leader schedule: {e}");
-                Err(())
             }
         };
     }
