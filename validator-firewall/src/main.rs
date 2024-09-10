@@ -125,6 +125,14 @@ async fn main() -> Result<(), anyhow::Error> {
         // This can happen if you remove all log statements from your eBPF program.
         warn!("failed to initialize eBPF logger: {}", e);
     }
+
+    // Add this block to populate the allow list
+    let mut allow_list_map: HashMap<_, u32, u8> = HashMap::try_from(bpf.map_mut("hvf_always_allow")?)?;
+    for ip in static_overrides.0.iter() {
+        let ip_u32 = u32::from(ip.first_address());
+        allow_list_map.insert(&ip_u32, &0, 0)?;
+    }
+
     let program: &mut Xdp = bpf.program_mut("validator_firewall").unwrap().try_into()?;
     program.load()?;
     program.attach(&config.iface, XdpFlags::default())

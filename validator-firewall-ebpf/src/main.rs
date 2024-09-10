@@ -65,12 +65,20 @@ fn panic(_info: &core::panic::PanicInfo) -> ! {
 //Hide some unsafe blocks
 #[inline(always)]
 fn is_allowed(address: u32, close_to_leader: bool) -> bool {
-    return if close_to_leader {
-        unsafe { LEADER_SLOT_DENY_LIST.get(&address).is_none() }
-    } else {
-        unsafe { FULL_SCHEDULE_ALLOW_LIST.get(&address).is_some() }
-    }
+    unsafe {
+        // Always check the allow list first
+        if FULL_SCHEDULE_ALLOW_LIST.get(&address).is_some() {
+            return true;
+        }
 
+        // If not in the allow list, check the deny list when close to leader
+        if close_to_leader {
+            LEADER_SLOT_DENY_LIST.get(&address).is_none()
+        } else {
+            // When not close to leader, only allow if in the allow list (which we've already checked)
+            false
+        }
+    }
 }
 
 #[inline(always)]
